@@ -1,29 +1,33 @@
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.sequence import pad_sequences
-from tensorflow.keras.preprocessing.text import Tokenizer
+import joblib  # For loading the trained tokenizer
+from preprocess_text import preprocess_text  # Import the preprocessing function
 
 # Load the saved model
 model = load_model("my_model.h5")
 
-# Load or recreate the tokenizer
-tokenizer = Tokenizer(num_words=3000)  # Ensure the parameters match what you used in training
+# Load the saved tokenizer
+tokenizer = joblib.load("tokenizer.pkl")  # Load the tokenizer saved during training
 
-# Example: Refit tokenizer if you saved training data or tokenizer separately
-# tokenizer.fit_on_texts(data['processed_message'])  # Only needed if training data is available
+# Example input
+sample_text = "Congratulations! You've won $10,000 by clicking this link."
 
-# Input text for prediction
-sample_input = [" You've won a freeasdad sare sare jahanhg se acha."]
+# Step 1: Preprocess the input
+processed = preprocess_text(sample_text)  # Preprocess the input text
+print(f"Processed Text: {processed}")
 
-# Preprocess the input
-tokenized_input = tokenizer.texts_to_sequences(sample_input)  # Tokenize
-padded_input = pad_sequences(tokenized_input, maxlen=100)  # Pad to match input shape
+# Step 2: Tokenize the preprocessed input
+tokenized_input = tokenizer.texts_to_sequences([processed])  # Tokenize as a list
+print(f"Tokenized Input: {tokenized_input}")
 
-# Make predictions
+# Step 3: Pad the tokenized input
+padded_input = pad_sequences(tokenized_input, maxlen=100)  # Pad sequences to match model input shape
+print(f"Padded Input: {padded_input}")
+
+# Step 4: Make predictions
 prediction = model.predict(padded_input)
-print(f"Prediction: {prediction}")
+print(f"Prediction: {prediction}")  # Model's probability output
 
-# Interpret the result (assuming binary classification)
-predicted_label = "Spam" if prediction[0] > 0.5 else "Not Spam"
+# Step 5: Interpret the result
+predicted_label = "Spam" if prediction[0][0] > 0.5 else "Not Spam"
 print(f"Predicted Label: {predicted_label}")
-
-

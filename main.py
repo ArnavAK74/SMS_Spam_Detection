@@ -3,7 +3,9 @@ from pydantic import BaseModel
 import tensorflow as tf
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 import requests
-import json
+import joblib
+import numpy as np
+import pickle
 from preprocess_text import preprocess_text  # Ensure this file exists in your project
 
 # Cloud storage URLs for model and tokenizer
@@ -12,6 +14,7 @@ TOKENIZER_URL = "https://sms-spam-requirements.s3.us-east-2.amazonaws.com/tokeni
 
 # Download and load the TensorFlow Lite model
 def load_model(url, destination="my_model.tflite"):
+    print("Downloading TensorFlow Lite model...")
     response = requests.get(url, stream=True)
     with open(destination, "wb") as f:
         f.write(response.content)
@@ -20,24 +23,25 @@ def load_model(url, destination="my_model.tflite"):
     interpreter.allocate_tensors()
     return interpreter
 
-# Download and load the tokenizer
-def load_tokenizer(url, destination="tokenizer.json"):
+# Download and load the tokenizer (pickle format)
+
+# Function to load the tokenizer
+def load_tokenizer(url, destination="tokenizer.pkl"):
     response = requests.get(url, stream=True)
     with open(destination, "wb") as f:
         f.write(response.content)
     print(f"Tokenizer downloaded and saved to {destination}")
-    with open(destination, "r") as f:
-        tokenizer_config = json.load(f)
-    from tensorflow.keras.preprocessing.text import tokenizer_from_json
-    tokenizer = tokenizer_from_json(tokenizer_config)
+    with open(destination, "rb") as f:
+        tokenizer = pickle.load(f)
     return tokenizer
 
-# Load the TensorFlow Lite model and tokenizer
+# Load the Tokenizer
+
 interpreter = load_model(MODEL_URL)
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
-
 tokenizer = load_tokenizer(TOKENIZER_URL)
+
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -52,20 +56,31 @@ class SpamInput(BaseModel):
 
 @app.post("/predict")
 async def predict_spam(input_data: SpamInput):
-    # Step 1: Preprocess the input text
-    processed_text = preprocess_text(input_data.text)
+    try:
+        # Step 1: Preprocess the input text
+        processed_text = preprocess_text(input_data.text)
 
-    # Step 2: Tokenize and pad the input
-    tokenized_input = tokenizer.texts_to_sequences([processed_text])
-    padded_input = pad_sequences(tokenized_input, maxlen=100)
+        # Step 2: Tokenize and pad the input
+        tokenized_input = tokenizer.texts_to_sequences([processed_text])
+        padded_input = pad_sequences(tokenized_input, maxlen=100)
 
-    # Step 3: Run inference using the TensorFlow Lite model
-    interpreter.set_tensor(input_details[0]['index'], padded_input.astype('float32'))
-    interpreter.invoke()
-    prediction = interpreter.get_tensor(output_details[0]['index'])[0][0]
-    print(f"Prediction Score: {prediction}")
+        # Step 3: Run inference using the TensorFlow Lite model
+        interpreter.set_tensor(input_details[0]['index'], padded_input.astype('float32'))
+        interpreter.invoke()
+        prediction = interpreter.get_tensor(output_details[0]['index'])[0][0]
 
-    # Step 4: Interpret the prediction
-    result = "Spam" if prediction > 0.5 else "Not Spam"
+        # Step 4: Convert prediction to a Python float
+        prediction_value = float(prediction)
+        print(f"Prediction Score: {prediction_value}")
 
-    return {"text": input_data.text, "prediction": result}
+        # Step 5: Interpret the prediction
+        result = "Spam" if prediction_value > 0.5 else "Not Spam"
+
+        return {
+            "text": input_data.text,
+            "prediction": result,
+            "score": prediction_value
+        }
+    except Exception as e:
+        print(f"Error during prediction: {e}")
+        return {"error": str(e)}

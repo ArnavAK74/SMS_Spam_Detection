@@ -6,10 +6,16 @@ import joblib
 from preprocess_text import preprocess_text
 
 # Load the saved model
-model = load_model("my_model.h5")
+import tensorflow as tf
+interpreter = tf.lite.Interpreter(model_path="my_model.tflite")
+interpreter.allocate_tensors()
 
 # Load the saved tokenizer
-tokenizer = joblib.load("tokenizer.pkl")  # Ensure the tokenizer was saved during training
+import json
+from keras.preprocessing.text import tokenizer_from_json
+with open("tokenizer.json", "r") as f:
+    tokenizer_data = json.load(f)
+    tokenizer = tokenizer_from_json(tokenizer_data) # Ensure the tokenizer was saved during training
 
 # Initialize the FastAPI app
 app = FastAPI()

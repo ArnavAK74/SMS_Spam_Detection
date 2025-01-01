@@ -1,5 +1,6 @@
 *.h5
 *.pkl
 *.tflite
+*.csv
 .venv/
 __pycache__/

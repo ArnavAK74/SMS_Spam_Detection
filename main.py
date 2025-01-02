@@ -28,14 +28,21 @@ def load_model(url, destination="my_model.tflite"):
 # Download and load the tokenizer (pickle format)
 
 # Function to load the tokenizer
+from joblib import load
+import requests
+
+# Function to download and load the tokenizer
 def load_tokenizer(url, destination="tokenizer.pkl"):
+    print("Downloading Tokenizer...")
     response = requests.get(url, stream=True)
     with open(destination, "wb") as f:
         f.write(response.content)
     print(f"Tokenizer downloaded and saved to {destination}")
-    with open(destination, "rb") as f:
-        tokenizer = pickle.load(f)
+    
+    # Use joblib to load the tokenizer
+    tokenizer = load(destination)
     return tokenizer
+
 
 # Load the Tokenizer
 

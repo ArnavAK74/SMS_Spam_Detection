@@ -1,56 +1,54 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import tensorflow as tf
-from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.preprocessing.sequence import tokenizer_from_json, pad_sequences
 import requests
-import joblib
-import numpy as np
-import pickle
+import json
 import os
 import uvicorn
 from preprocess_text import preprocess_text  # Ensure this file exists in your project
 
 # Cloud storage URLs for model and tokenizer
 MODEL_URL = "https://sms-spam-requirements.s3.us-east-2.amazonaws.com/my_model.tflite"
-TOKENIZER_URL = "https://sms-spam-requirements.s3.us-east-2.amazonaws.com/tokenizer.pkl"
+TOKENIZER_URL = "https://sms-spam-requirements.s3.us-east-2.amazonaws.com/tokenizer.json"
 
 # Download and load the TensorFlow Lite model
 def load_model(url, destination="my_model.tflite"):
-    print("Downloading TensorFlow Lite model...")
-    response = requests.get(url, stream=True)
-    with open(destination, "wb") as f:
-        f.write(response.content)
-    print(f"Model downloaded and saved to {destination}")
+    if not os.path.exists(destination):
+        print("Downloading TensorFlow Lite model...")
+        response = requests.get(url, stream=True)
+        with open(destination, "wb") as f:
+            f.write(response.content)
+        print(f"Model downloaded and saved to {destination}")
+    else:
+        print(f"Model already exists locally at {destination}")
     interpreter = tf.lite.Interpreter(model_path=destination)
     interpreter.allocate_tensors()
     return interpreter
 
-# Download and load the tokenizer (pickle format)
-
-# Function to load the tokenizer
-from joblib import load
-import requests
-
-# Function to download and load the tokenizer
-def load_tokenizer(url, destination="tokenizer.pkl"):
-    print("Downloading Tokenizer...")
-    response = requests.get(url, stream=True)
-    with open(destination, "wb") as f:
-        f.write(response.content)
-    print(f"Tokenizer downloaded and saved to {destination}")
+# Download and load the tokenizer from a URL
+def load_tokenizer_from_url(url, destination="tokenizer.json"):
+    if not os.path.exists(destination):
+        print("Downloading Tokenizer JSON...")
+        response = requests.get(url, stream=True)
+        with open(destination, "wb") as f:
+            f.write(response.content)
+        print(f"Tokenizer JSON downloaded and saved to {destination}")
+    else:
+        print(f"Tokenizer JSON already exists locally at {destination}")
     
-    # Use joblib to load the tokenizer
-    tokenizer = load(destination)
+    print("Loading Tokenizer from JSON...")
+    with open(destination, "r") as f:
+        tokenizer_data = json.load(f)
+    tokenizer = tokenizer_from_json(tokenizer_data)
+    print("Tokenizer loaded successfully!")
     return tokenizer
 
-
-# Load the Tokenizer
-
+# Initialize the model and tokenizer
 interpreter = load_model(MODEL_URL)
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
-tokenizer = load_tokenizer(TOKENIZER_URL)
-
+tokenizer = load_tokenizer_from_url(TOKENIZER_URL)
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -59,11 +57,9 @@ app = FastAPI()
 def read_root():
     return {"message": "API is running"}
 
-
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
     uvicorn.run("main:app", host="0.0.0.0", port=port)
-
 
 # Define input schema
 class SpamInput(BaseModel):

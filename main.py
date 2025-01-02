@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import tensorflow as tf
-from tensorflow.keras.preprocessing.sequence import tokenizer_from_json, pad_sequences
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.preprocessing.text import tokenizer_from_json
 import requests
 import json
 import os

@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-import tensorflow as tf
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 import requests
 import joblib
